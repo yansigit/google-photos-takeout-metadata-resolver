@@ -81,13 +81,20 @@ func (p *Pipeline) Run(ctx context.Context, reports []matcher.MatchReport) *repo
 
 			for match := range matchCh {
 				if ctx.Err() != nil {
-					atomic.AddInt64(&stats.Failed, 1)
+					atomic.AddInt64(&stats.Skipped, 1)
 					continue
 				}
 
 				result := w.Process(match)
 				if result.Success {
 					atomic.AddInt64(&stats.Processed, 1)
+					if result.MetadataWarning {
+						atomic.AddInt64(&stats.MetadataWarnings, 1)
+						p.logger.Warn("metadata write failed (file copied with filesystem timestamp)",
+							"file", result.MediaPath,
+							"error", result.Error,
+						)
+					}
 				} else {
 					atomic.AddInt64(&stats.Failed, 1)
 					if result.Error != nil {

@@ -33,10 +33,11 @@ func NewWriter(outputDir, inputRootDir string, exiftool *ExifToolBatch, dryRun b
 
 // ProcessResult holds the outcome of processing a single matched pair.
 type ProcessResult struct {
-	MediaPath  string
-	OutputPath string
-	Success    bool
-	Error      error
+	MediaPath       string
+	OutputPath      string
+	Success         bool
+	MetadataWarning bool
+	Error           error
 }
 
 // Process copies a media file to the output directory and writes metadata.
@@ -77,20 +78,30 @@ func (w *Writer) Process(match matcher.MatchResult) ProcessResult {
 	}
 
 	// Write metadata via exiftool
-	if err := w.exiftool.WriteMetadata(outputPath, match.Meta); err != nil {
-		w.logger.Warn("exiftool write failed, file still copied",
-			"file", outputPath,
-			"error", err,
-		)
-		// Non-fatal: file is copied but metadata may not be written
-	}
+	exifErr := w.exiftool.WriteMetadata(outputPath, match.Meta)
 
 	// Set file modification time
 	if takenTime, err := match.Meta.PhotoTakenTime.Time(); err == nil {
 		os.Chtimes(outputPath, takenTime, takenTime)
 	}
 
-	return ProcessResult{MediaPath: match.MediaPath, OutputPath: outputPath, Success: true}
+	if exifErr != nil {
+		// File was copied and filesystem timestamp was set, but embedded metadata
+		// couldn't be written (e.g. structurally corrupt file). Treat as a warning.
+		return ProcessResult{
+			MediaPath:       match.MediaPath,
+			OutputPath:      outputPath,
+			Success:         true,
+			MetadataWarning: true,
+			Error:           exifErr,
+		}
+	}
+
+	return ProcessResult{
+		MediaPath:  match.MediaPath,
+		OutputPath: outputPath,
+		Success:    true,
+	}
 }
 
 // CopyOrphan copies a media file without metadata to the output directory.

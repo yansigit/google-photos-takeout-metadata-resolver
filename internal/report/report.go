@@ -7,13 +7,15 @@ import (
 
 // Stats holds aggregate processing statistics.
 type Stats struct {
-	TotalMedia   int64
-	TotalJSON    int64
-	Processed    int64
-	Failed       int64
-	OrphanJSON   int64
-	OrphanMedia  int64
-	OrphansCopied int64
+	TotalMedia       int64
+	TotalJSON        int64
+	Processed        int64
+	Failed           int64
+	MetadataWarnings int64
+	Skipped          int64
+	OrphanJSON       int64
+	OrphanMedia      int64
+	OrphansCopied    int64
 }
 
 // Print prints a human-readable summary to stdout.
@@ -27,6 +29,12 @@ func (s *Stats) Print(elapsed time.Duration) {
 	fmt.Println("--------------------------------------------")
 	fmt.Printf("  Successfully processed:     %d\n", s.Processed)
 	fmt.Printf("  Failed:                     %d\n", s.Failed)
+	if s.MetadataWarnings > 0 {
+		fmt.Printf("  Metadata warnings:          %d\n", s.MetadataWarnings)
+	}
+	if s.Skipped > 0 {
+		fmt.Printf("  Skipped (interrupted):      %d\n", s.Skipped)
+	}
 	fmt.Printf("  Orphan JSON (no media):     %d\n", s.OrphanJSON)
 	fmt.Printf("  Orphan media (no JSON):     %d\n", s.OrphanMedia)
 	if s.OrphansCopied > 0 {
