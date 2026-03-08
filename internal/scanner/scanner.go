@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"golang.org/x/text/unicode/norm"
+
 	"gp-takeout-resolver/internal/matcher"
 )
 
@@ -57,9 +59,10 @@ func ScanInput(inputDir string, opts ScanOptions) ([]FolderScan, error) {
 		if !e.IsDir() {
 			continue
 		}
-		name := e.Name()
+		rawName := e.Name()
+		name := norm.NFC.String(rawName)
 		if strings.HasPrefix(name, "Google") && (strings.Contains(name, "포토") || strings.Contains(name, "Photos") || strings.Contains(name, "Fotos")) {
-			googlePhotosDir = filepath.Join(inputDir, name)
+			googlePhotosDir = filepath.Join(inputDir, rawName)
 			break
 		}
 	}
@@ -85,7 +88,8 @@ func scanDirectory(rootDir string, opts ScanOptions) ([]FolderScan, error) {
 			continue
 		}
 
-		dirName := e.Name()
+		rawDirName := e.Name()
+		dirName := norm.NFC.String(rawDirName)
 
 		// Skip trash/archive if configured
 		if opts.SkipTrash && trashFolderNames[dirName] {
@@ -95,7 +99,7 @@ func scanDirectory(rootDir string, opts ScanOptions) ([]FolderScan, error) {
 			continue
 		}
 
-		dirPath := filepath.Join(rootDir, dirName)
+		dirPath := filepath.Join(rootDir, rawDirName)
 		scan, err := scanSingleDir(dirPath)
 		if err != nil {
 			return nil, fmt.Errorf("scanning %s: %w", dirPath, err)
@@ -131,7 +135,8 @@ func scanSingleDir(dir string) (FolderScan, error) {
 			continue
 		}
 
-		name := e.Name()
+		rawName := e.Name()
+		name := norm.NFC.String(rawName)
 
 		// Skip known non-per-file metadata
 		if knownSkipFiles[name] {
@@ -139,12 +144,12 @@ func scanSingleDir(dir string) (FolderScan, error) {
 		}
 
 		if matcher.IsJSONFile(name) {
-			scan.JSONFiles = append(scan.JSONFiles, name)
+			scan.JSONFiles = append(scan.JSONFiles, rawName)
 		} else if matcher.IsMediaFile(name) {
-			scan.MediaFiles = append(scan.MediaFiles, name)
+			scan.MediaFiles = append(scan.MediaFiles, rawName)
 		} else if filepath.Ext(name) == "" {
 			// Files without extensions — treat as potential media (e.g. QuickTime movies)
-			scan.MediaFiles = append(scan.MediaFiles, name)
+			scan.MediaFiles = append(scan.MediaFiles, rawName)
 		}
 	}
 
